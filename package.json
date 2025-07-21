@@ -1,0 +1,28 @@
+{
+  "name": "task-parser-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda to parse user text into tasks using Groq LLM",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"No test specified\" && exit 0",
+    "test-dynamodb": "node test-dynamodb.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "lambda",
+    "groq",
+    "task",
+    "llm",
+    "aws"
+  ]
+}
