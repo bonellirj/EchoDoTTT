@@ -2,6 +2,7 @@ import { processRequest } from './llm/index.js';
 import { validateInput } from './utils/validation.js';
 import { createResponse } from './utils/response.js';
 import { loadSystemPrompt } from './utils/loadPrompt.js';
+import { echoDoLogger } from './utils/logger.js';
 
 /**
  * Main Lambda handler - Entry point
@@ -12,40 +13,61 @@ export const handler = async (event) => {
   try {
     console.log('Event received:', JSON.stringify(event, null, 2));
     
-    // Load system prompt
-    let systemPrompt;
-    try {
-      systemPrompt = await loadSystemPrompt();
-    } catch (error) {
-      return createResponse(500, {
-        success: false,
-        error_code: 'prompt_loading_failed',
-        message: 'Failed to load system prompt configuration'
-      });
-    }
-    
-    let userText, selectedLLM;
+    let userText, selectedLLM, userTimestamp;
     
     try {
       const input = validateInput(event);
       userText = input.userText;
       selectedLLM = input.selectedLLM;
+      userTimestamp = input.userTimestamp;
+      
+      // Log request start with transaction ID
+      await echoDoLogger.logRequestStart(userText, selectedLLM, userTimestamp);
     } catch (error) {
+      // Log validation error with original text if available
+      const originalText = event.userText || event.body?.userText || null;
+      await echoDoLogger.logValidationError(error.message, event.userTimestamp || 'unknown', originalText);
+      
       return createResponse(400, {
         success: false,
         error_code: 'missing_input',
         message: error.message
       });
     }
+    
+    // Load system prompt with user timestamp if provided
+    let systemPrompt;
+    try {
+      systemPrompt = await loadSystemPrompt(userTimestamp);
+    } catch (error) {
+      // Log prompt loading error with original text
+      await echoDoLogger.logRequestError(error, 500, userTimestamp, userText);
+      
+      return createResponse(500, {
+        success: false,
+        error_code: 'prompt_loading_failed',
+        message: 'Failed to load system prompt configuration'
+      });
+    }
 
     // Process the request
     try {
-      const result = await processRequest(userText, selectedLLM, systemPrompt);
+      console.log('Processing request: userTimestamp', userTimestamp);
+      const result = await processRequest(userText, selectedLLM, systemPrompt, userTimestamp);
+      
+      // Log successful processing
+      await echoDoLogger.logRequestSuccess(result, userTimestamp);
+      
       return createResponse(200, {
         success: true,
         data: result
       });
     } catch (error) {
+      // Log processing error with original text and task JSON
+      const originalText = error.originalText || userText;
+      const taskJson = error.taskJson || null;
+      await echoDoLogger.logRequestError(error, 500, userTimestamp, originalText, taskJson);
+      
       // Handle specific error codes
       if (error.code === 'not_a_task') {
         return createResponse(422, {
@@ -115,6 +137,12 @@ export const handler = async (event) => {
 
   } catch (err) {
     console.error('Unhandled error', err);
+    
+    // Log unhandled error with available context
+    const originalText = err.originalText || event.userText || event.body?.userText || null;
+    const taskJson = err.taskJson || null;
+    await echoDoLogger.logRequestError(err, 500, 'unknown', originalText, taskJson);
+    
     return createResponse(500, {
       success: false,
       error_code: 'internal_error',

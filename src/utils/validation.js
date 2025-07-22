@@ -24,13 +24,34 @@ export const isDateInPast = (isoDate) => {
 };
 
 /**
+ * Validate user timestamp
+ * @param {string} timestamp - User provided timestamp
+ * @returns {string|null} Validated timestamp or null if invalid
+ */
+export const validateUserTimestamp = (timestamp) => {
+  if (!timestamp) return null;
+  
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) {
+      console.log('Invalid timestamp format:', timestamp);
+      return null;
+    }
+    return date.toISOString();
+  } catch (error) {
+    console.log('Error parsing timestamp:', timestamp, error);
+    return null;
+  }
+};
+
+/**
  * Validate and extract input from event
  * @param {object} event - Lambda event
- * @returns {object} Object with userText and selectedLLM
+ * @returns {object} Object with userText, selectedLLM, and userTimestamp
  * @throws {Error} If input is invalid
  */
 export const validateInput = (event) => {
-  let userText, selectedLLM;
+  let userText, selectedLLM, userTimestamp;
   
   // Handle different invocation sources
   if (event.body) {
@@ -47,15 +68,19 @@ export const validateInput = (event) => {
     const body = typeof bodyString === 'string' ? JSON.parse(bodyString) : bodyString;
     userText = body?.text;
     selectedLLM = body?.llm || 'groq'; // Default to groq if not specified
+    userTimestamp = body?.userTimestamp; // Optional user timestamp
     console.log('Parsed body from API Gateway:', body);
     console.log('Selected LLM:', selectedLLM, 'Type:', typeof selectedLLM);
     console.log('Body.llm value:', body?.llm, 'Type:', typeof body?.llm);
+    console.log('User timestamp:', userTimestamp);
   } else if (event.text) {
     // Direct Lambda invocation
     userText = event.text;
     selectedLLM = event.llm || 'groq';
+    userTimestamp = event.userTimestamp; // Optional user timestamp
     console.log('Direct invocation with text:', userText, 'LLM:', selectedLLM);
     console.log('Event.llm value:', event.llm, 'Type:', typeof event.llm);
+    console.log('User timestamp:', userTimestamp);
   } else {
     console.log('No valid input found in event');
   }
@@ -65,5 +90,13 @@ export const validateInput = (event) => {
     throw new Error('Missing or invalid input');
   }
 
-  return { userText, selectedLLM };
+  // Validate user timestamp if provided
+  const validatedTimestamp = userTimestamp;
+  // const validatedTimestamp = validateUserTimestamp(userTimestamp);
+  if (userTimestamp && !validatedTimestamp) {
+    console.log('Invalid user timestamp provided:', userTimestamp);
+    // Don't throw error, just log and continue without timestamp
+  }
+
+  return { userText, selectedLLM, userTimestamp: validatedTimestamp };
 }; 

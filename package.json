@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node index.js",
     "test": "echo \"No test specified\" && exit 0",
-    "test-dynamodb": "node test-dynamodb.js"
+    "test-dynamodb": "node test-dynamodb.js",
+    "test-logger": "node test-logger.js"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",

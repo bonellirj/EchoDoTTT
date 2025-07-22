@@ -10,9 +10,9 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 const TABLE_NAME = DYNAMODB_CONFIG.tableName;
 const PROMPT_ID = DYNAMODB_CONFIG.promptId;
 
-export const loadSystemPrompt = async () => {
+export const loadSystemPrompt = async (userTimestamp = null) => {
 
-  if (cachedPrompt !== null) {
+  if (cachedPrompt !== null && !userTimestamp) {
     console.log(`Loading prompt from cache: ${cachedPrompt}`);
     return cachedPrompt;
   }
@@ -39,13 +39,17 @@ export const loadSystemPrompt = async () => {
 
     let promptContent = response.Item.content;
     
-    // Replace the dynamic date placeholder with current time
-    promptContent = promptContent.replace('${new Date().toISOString()}', new Date().toISOString()).trim();
+    // Replace the dynamic date placeholder with user timestamp or current time
+    const timestampToUse = userTimestamp || new Date().toISOString();
+    promptContent = promptContent.replace('${new Date().toISOString()}', timestampToUse).trim();
     
-    // Armazena no cache para esta execução
-    cachedPrompt = promptContent;
+    // Only cache if no user timestamp is provided (to avoid caching user-specific prompts)
+    if (!userTimestamp) {
+      cachedPrompt = promptContent;
+    }
     
     console.log('Prompt loaded successfully from DynamoDB');
+    console.log('Timestamp used for prompt:', timestampToUse);
     return promptContent;
     
   } catch (error) {
